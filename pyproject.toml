@@ -1,0 +1,80 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "aml_working_paper"
+version = "0.0.1"
+description = "AML working paper"
+authors = [
+  { name = "Juan Montenegro", email = "juanmonte795@gmail.com" },
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License"
+]
+dependencies = [
+    "ipython",
+    "jupyterlab",
+    "loguru",
+    "matplotlib",
+    "mkdocs",
+    "notebook",
+    "numpy",
+    "pandas",
+    "pytest",
+    "python-dotenv",
+    "ruff",
+    "scikit-learn",
+    "tqdm",
+]
+requires-python = "~=3.13.0"
+
+
+[tool.ruff]
+# Basic settings
+line-length = 88
+src = ["aml_working_paper"]
+include = ["pyproject.toml", "aml_working_paper/**/*.py"]
+exclude = [
+    ".eggs",
+    "*.egg-info",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    "__pycache__",
+    ".tox",
+    ".venv",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+# Enabled rule sets
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes (syntax error checking)
+    "I",   # isort (import sorting)
+    "B",   # flake8-bugbear (common bug checking)
+    "C4",  # flake8-comprehensions (comprehension optimizations)
+    "UP",  # pyupgrade (Python version upgrade suggestions)
+    "SIM", # flake8-simplify (code simplification)
+    "Q",   # flake8-quotes (quote checking)
+]
+# Ignored rules
+ignore = [
+    "E501", # Line length (handled by formatter)
+    "B008", # Mutable default values in function arguments (sometimes needed)
+]
+isort = {known-first-party = ["src"], force-sort-within-sections = true}
+
+[tool.ruff.format]
+quote-style = "double"            # Use double quotes
+indent-style = "space"            # Use space indentation
+skip-magic-trailing-comma = false # Do not skip magic trailing comma
+line-ending = "auto"              # Use automatic line ending
+
+
