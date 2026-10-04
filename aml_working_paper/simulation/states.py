@@ -2,7 +2,7 @@
 ### It's use is to prove that our suppositions work before continuing with equations.py
 
 import numpy as np
-from numpy.random import Generator
+import pandas as pd
 from scipy.special import softmax
 import pytest
 
@@ -33,11 +33,10 @@ def validate_transition_matrix(matrix: np.ndarray) -> None:
     if not np.allclose(row_sums, 1.0):
         raise ValueError("Each row of the transition matrix must sum to 1.")
 
-
 def sample_next_state(
     previous_state: int,
     network_exposure: float,
-    rng: Generator,
+    rng: np.random.Generator,
 ) -> int:
     """Sample the next latent AML state."""
 
@@ -85,8 +84,17 @@ def test_higher_exposure_increases_active_aml_probability():
 
     assert high[2] > low[2]
 
-def transition_probabilities(previous_state: int, network_exposure_effect, network_exposure: float, transition_matrix: np.ndarray = BASE_TRANSITION,
-    ) -> np.ndarray:
+NETWORK_EXPOSURE_EFFECT = np.array(
+    [-1.0, 0.25, 1.25],
+    dtype=float,
+)
+
+def transition_probabilities(
+    previous_state: int,
+    network_exposure: float,
+    transition_matrix: np.ndarray = BASE_TRANSITION,
+    network_exposure_effect: np.ndarray = NETWORK_EXPOSURE_EFFECT,
+) -> np.ndarray:
     """Compute transition probabilities conditional on network exposure."""
 
     if not 0.0 <= network_exposure <= 1.0:
@@ -115,3 +123,41 @@ def test_invalid_network_exposure_raises_error():
             previous_state=0,
             network_exposure=1.5,
         )   
+
+def test_simulate_account_has_expected_columns():
+    df = simulate_account(periods=10, seed=42)
+
+    expected_columns = {
+        "time",
+        "economic_context",
+        "network_exposure",
+        "aml_state",
+        "structuring_score",
+        "cross_border_ratio",
+        "transaction_volume",
+    }
+
+    assert set(df.columns) == expected_columns
+
+def test_simulate_account_has_expected_length():
+    df = simulate_account(periods=25, seed=42)
+
+    assert len(df) == 25
+
+def test_simulate_account_is_reproducible():
+    df_1 = simulate_account(periods=20, seed=42)
+    df_2 = simulate_account(periods=20, seed=42)
+
+    pd.testing.assert_frame_equal(df_1, df_2)
+
+def test_simulate_account_states_are_valid():
+    df = simulate_account(periods=100, seed=42)
+
+    assert set(df["aml_state"]).issubset({0, 1, 2})
+
+def test_simulate_account_bounded_variables():
+    df = simulate_account(periods=100, seed=42)
+
+    assert df["network_exposure"].between(0.0, 1.0).all()
+    assert df["structuring_score"].between(0.0, 1.0).all()
+    assert df["cross_border_ratio"].between(0.0, 1.0).all()
