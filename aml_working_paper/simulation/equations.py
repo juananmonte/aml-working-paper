@@ -104,39 +104,66 @@ def generate_economic_context(
 
 def simulate_account(
     periods: int = 100,
-    initial_economic_context: float = 0.0,
     initial_aml_state: int = 0,
     seed: int = 42,
+    economic_context_path: np.ndarray | None = None,
+    initial_economic_context: float = 0.0,
 ) -> pd.DataFrame:
     """Simulate one account over multiple time periods."""
+
     if periods <= 0:
         raise ValueError("periods must be greater than 0.")
 
     if initial_aml_state not in {0, 1, 2}:
-        raise ValueError("initial_aml_state must be one of {0, 1, 2}.")
+        raise ValueError(
+            "initial_aml_state must be one of {0, 1, 2}."
+        )
+
+    if (
+        economic_context_path is not None
+        and len(economic_context_path) != periods
+    ):
+        raise ValueError(
+            "economic_context_path must have length equal to periods."
+        )
 
     seed_sequence = np.random.SeedSequence(seed)
-    child_seeds = seed_sequence.spawn(6)
 
-    rng_economic = np.random.default_rng(child_seeds[0])
-    rng_network = np.random.default_rng(child_seeds[1])
-    rng_state = np.random.default_rng(child_seeds[2])
-    rng_structuring = np.random.default_rng(child_seeds[3])
-    rng_cross_border = np.random.default_rng(child_seeds[4])
-    rng_volume = np.random.default_rng(child_seeds[5])
+    if economic_context_path is None:
+        child_seeds = seed_sequence.spawn(6)
+
+        rng_economic = np.random.default_rng(child_seeds[0])
+        rng_network = np.random.default_rng(child_seeds[1])
+        rng_state = np.random.default_rng(child_seeds[2])
+        rng_structuring = np.random.default_rng(child_seeds[3])
+        rng_cross_border = np.random.default_rng(child_seeds[4])
+        rng_volume = np.random.default_rng(child_seeds[5])
+
+    else:
+        child_seeds = seed_sequence.spawn(5)
+
+        rng_network = np.random.default_rng(child_seeds[0])
+        rng_state = np.random.default_rng(child_seeds[1])
+        rng_structuring = np.random.default_rng(child_seeds[2])
+        rng_cross_border = np.random.default_rng(child_seeds[3])
+        rng_volume = np.random.default_rng(child_seeds[4])
 
     economic_context = initial_economic_context
     previous_aml_state = initial_aml_state
 
     rows = []
-    economic_context_params = []
 
     for t in range(periods):
-        economic_context = generate_economic_context(
-            previous_context=economic_context,
-            rng=rng_economic,
-        )
-        economic_context_params.append(economic_context)
+
+        if economic_context_path is None:
+            economic_context = generate_economic_context(
+                previous_context=economic_context,
+                rng=rng_economic,
+            )
+        else:
+            economic_context = float(
+                economic_context_path[t]
+            )
 
         network_exposure = generate_network_exposure(
             economic_context=economic_context,
@@ -172,13 +199,105 @@ def simulate_account(
                 "time": t,
                 "economic_context": economic_context,
                 "network_exposure": network_exposure,
+                "previous_aml_state": previous_aml_state,
                 "aml_state": aml_state,
                 "structuring_score": structuring_score,
                 "cross_border_ratio": cross_border_ratio,
-                "transaction_volume": transaction_volume,"previous_aml_state": previous_aml_state,
+                "transaction_volume": transaction_volume,
             }
         )
 
         previous_aml_state = aml_state
 
     return pd.DataFrame(rows)
+
+def simulate_economic_context(
+    periods: int,
+    seed: int = 42,
+    initial_context: float = 0.0,
+) -> np.ndarray:
+    """Simulate a shared economic context path."""
+
+    if periods <= 0:
+        raise ValueError(
+            "periods must be greater than 0."
+        )
+
+    rng = np.random.default_rng(seed)
+
+    context = initial_context
+    values = []
+
+    for _ in range(periods):
+        context = generate_economic_context(
+            previous_context=context,
+            rng=rng,
+        )
+
+        values.append(context)
+
+    return np.asarray(values)
+
+def simulate_accounts(
+    n_accounts: int = 100,
+    periods: int = 100,
+    seed: int = 42,
+) -> pd.DataFrame:
+    """Simulate multiple accounts over a shared economic context."""
+
+    if n_accounts <= 0:
+        raise ValueError(
+            "n_accounts must be greater than 0."
+        )
+
+    if periods <= 0:
+        raise ValueError(
+            "periods must be greater than 0."
+        )
+
+    seed_sequence = np.random.SeedSequence(seed)
+
+    child_seeds = seed_sequence.spawn(
+        n_accounts + 1
+    )
+
+    economic_seed = int(
+        child_seeds[0].generate_state(1)[0]
+    )
+
+    economic_context_path = simulate_economic_context(
+        periods=periods,
+        seed=economic_seed,
+    )
+
+    account_frames = []
+
+    for account_id in range(n_accounts):
+
+        account_seed = int(
+            child_seeds[
+                account_id + 1
+            ].generate_state(1)[0]
+        )
+
+        account_df = simulate_account(
+            periods=periods,
+            seed=account_seed,
+            economic_context_path=economic_context_path,
+        )
+
+        account_df.insert(
+            0,
+            "account_id",
+            account_id,
+        )
+
+        account_frames.append(
+            account_df
+        )
+
+    return pd.concat(
+        account_frames,
+        ignore_index=True,
+    )
+
