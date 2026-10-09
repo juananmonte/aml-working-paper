@@ -20,6 +20,7 @@ dependencies = [
     "ipython",
     "ipywidgets>=8.1.9",
     "jupyterlab",
+    "jupyterlab-widgets>=3.0.17",
     "loguru",
     "matplotlib",
     "mkdocs",

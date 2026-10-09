@@ -2,105 +2,91 @@ import pymc as pm
 import numpy as np
 import pytensor.tensor as pt
 from pytensor.scan import scan
+#from scipy.stats import norm
 
 
-def normal_logpdf_batch_pt(x, mu, sigma):
+def pdf_normal_hmm(sequences, mu, sigma):
     """
-    x:     (n_accounts, n_features)
-    mu:    (n_states, n_features)
-    sigma: (n_states, n_features)
-
-    returns:
-        (n_accounts, n_states)
+    Get the probability density function for a normal distribution in order to check if a data point is compatible with the distribution
+    sequence:
+    mu:
+    sigma
     """
-    log_prob = (-0.5 * pt.log(2 * np.pi) - pt.log(sigma[None, :, :]) - 0.5 * ( (x[:, None, :] - mu[None, :, :]) / sigma[None, :, :]) ** 2)
-    return pt.sum(log_prob, axis=2)
+    ### Pymc uses pytensor whic is faster than scipy or numpy
+    normal_dist = pm.Normal.dist(mu=mu, sigma=sigma)
+    ### I use [..., None, :] because sequences have a "time" layer and it needs to match the shape of mu and sigma. It also helps with broadcasting.
+    log_prob = pm.logp(normal_dist, sequences[..., None, :])
+    ### use pytensor to get the sum since pymc doesn't have this function
+    emissions_hmm = pm.math.sum(log_prob, axis=-1)
 
+    return emissions_hmm
 
-def batch_forward_log_likelihood_pt(sequences, pi, A, mu, sigma):
+def forward_step(sequences, previous, current, mu, sigma):
     """
-    Forward likelihood for all account trajectories simultaneously.
+    Calculate how much evidence in favour, for a moment t, each hidden state has
 
-    sequences:
-        (n_accounts, n_time, n_features)
+    sequences, log_prev, log_current, mu, sigma
     """
 
-    log_pi = pt.log(pi)
-    log_A = pt.log(A)
+    emissions_hmm = pdf_normal_hmm(sequences, mu, sigma)
+    ### np.newaxis used in order to put the shapes in the same dimentions
+    transition_combinations = (previous[:, :, np.newaxis] + current[np.newaxis, :, :])
+    ### add all the contributions of all the combinations from the previous states
+    predicted_state = pm.math.logsumexp(transition_combinations, axis=1)
+    
+    return (predicted_state + emissions_hmm)
 
-    # First observation for every account
-    log_emission_0 = normal_logpdf_batch_pt(
-        sequences[:, 0, :],
-        mu,
-        sigma,
-    )
+def forward_log_likelihood(sequences, pi, current, mu, sigma):
+    """
+    calculate te forward step, move to the remaining periods and calculate the total log likelihood
 
-    log_alpha_0 = (
-        log_pi[None, :]
-        + log_emission_0
-    )
+    sequences, log_prev, log_current, mu, sigma
+    """
 
-    # scan expects time as the first dimension
-    observations = sequences[:, 1:, :].dimshuffle(1, 0, 2)
+    log_pi = pm.math.log(pi)
+    log_A = pm.math.log(current)
 
-    def forward_step(x_t, log_alpha_prev, log_A, mu, sigma):
+    ### get the first period/state data
+    first_observation = sequences[:, 0, :]
+    first_log_emission = pdf_normal_hmm(first_observation, mu, sigma)
+    log_alpha_initial = log_pi[None, :] + first_log_emission
 
-        # (account, previous_state, next_state)
-        log_transition = (
-            log_alpha_prev[:, :, None]
-            + log_A[None, :, :]
-        )
+    ### 1 because the period 0 is already taken as the base
+    remaining_observations = sequences[:, 1:, :]
 
-        # Sum over possible previous states
-        log_predicted_state = pt.logsumexp(
-            log_transition,
-            axis=1,
-        )
+    ### dimshufle is used to put the time axis (sequences) first for the scan method
+    observations_by_time = remaining_observations.dimshuffle(1, 0, 2)
 
-        log_emission = normal_logpdf_batch_pt(
-            x_t,
-            mu,
-            sigma,
-        )
+    ### scan is a for loop function for operations with pytensors/pymc. 
+    ### In this case, it builds a table of results for each period ang gets the forward step for each one. With that forward step, we can calculate the next period.
+    log_alpha_history, _ = scan(fn=forward_step, sequences=[observations_by_time], outputs_info=[log_alpha_initial], non_sequences=[log_A, mu, sigma])
+    final_log_alpha = log_alpha_history[-1]
+    ###logsumexp get the total values of a sequence for an account
+    account_log_likelihood = pm.math.logsumexp(final_log_alpha,axis=1)
+    ### now, we add the total values for all accounts
+    total_log_likelihood = pm.math.sum(account_log_likelihood)
 
-        return (
-            log_predicted_state
-            + log_emission
-        )
+    return total_log_likelihood
 
-    log_alphas, _ = scan(
-        fn=forward_step,
-        sequences=[observations],
-        outputs_info=[log_alpha_0],
-        non_sequences=[log_A, mu, sigma],
-    )
+def build_hmm_model(sequences):
 
-    # Last alpha for every account
-    final_log_alpha = log_alphas[-1]
+    """
+    Build the model defining the starting points for the Hidden Markov Models
 
-    # Likelihood of each account
-    account_log_likelihood = pt.logsumexp(
-        final_log_alpha,
-        axis=1,
-    )
-
-    # Total likelihood
-    return pt.sum(account_log_likelihood)
-
-def build_hmm_model(train_sequences):
-
-    train_array = np.stack(train_sequences).astype("float64")
+    sequences, log_prev, log_current, mu, sigma
+    """
+    
+    data = np.stack(sequences).astype("float64")
     n_states = 3
-    n_features = train_array.shape[2]
+    n_features = data.shape[2]
 
     with pm.Model() as model:
-
-        pi = pm.Dirichlet("pi", a=np.ones(n_states))
-        A = pm.Dirichlet("A", a=np.ones((n_states, n_states)), shape=(n_states, n_states))
-        mu = pm.Normal("mu", mu=0.0, sigma=2.0, shape=(n_states, n_features))
-        sigma = pm.HalfNormal("sigma", sigma=1.0, shape=(n_states, n_features))
-        sequences = pt.as_tensor_variable(train_array)
-        log_likelihood = batch_forward_log_likelihood_pt(sequences, pi, A, mu, sigma)
-        pm.Potential("hmm_likelihood", log_likelihood)
+        initial_probs = pm.Dirichlet("pi", a=np.ones(n_states))
+        transition_matrix = pm.Dirichlet("current", a=np.ones((n_states, n_states)), shape=(n_states, n_states))
+        state_means = pm.Normal("mu", mu=0, sigma=2,shape=(n_states, n_features))
+        state_stds = pm.HalfNormal("sigma", sigma=1, shape=(n_states, n_features))
+        observations = pt.as_tensor_variable(data)
+        log_likelihood = forward_log_likelihood(observations, initial_probs, transition_matrix, state_means, state_stds)
+        pm.Potential("hmm_likelihood",log_likelihood)
 
     return model
