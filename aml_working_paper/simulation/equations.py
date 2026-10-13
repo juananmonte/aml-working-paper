@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from numpy.random import Generator
 from aml_working_paper.simulation.states import sample_next_state
+from equations import simulate_accounts
 
 
 def logistic(x: float | np.ndarray) -> float | np.ndarray:

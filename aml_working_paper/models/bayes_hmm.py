@@ -51,7 +51,7 @@ def forward_log_likelihood(sequences, pi, current, mu, sigma):
     first_log_emission = pdf_normal_hmm(first_observation, mu, sigma)
     log_alpha_initial = log_pi[None, :] + first_log_emission
 
-    ### 1 because the period 0 is already taken as the base
+    ### 1 because the period 0 is already taken as it is the base
     remaining_observations = sequences[:, 1:, :]
 
     ### dimshufle is used to put the time axis (sequences) first for the scan method
@@ -73,7 +73,6 @@ def build_hmm_model(sequences):
     """
     Build the model defining the starting points for the Hidden Markov Models
 
-    sequences, log_prev, log_current, mu, sigma
     """
     
     data = np.stack(sequences).astype("float64")
