@@ -25,7 +25,6 @@ def split_accounts(df, train_size=0.70, val_size=0.20, test_size=0.10, random_st
 def validate_splits(df, train_df, val_df, test_df):
     # Check that no observations were lost
     assert (train_df.shape[0] + val_df.shape[0] + test_df.shape[0] == df.shape[0])
-
     # Check that accounts do not overlap across splits
     assert set(train_df["account_id"]).isdisjoint(val_df["account_id"])
     assert set(train_df["account_id"]).isdisjoint(test_df["account_id"])
