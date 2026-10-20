@@ -1,60 +1,31 @@
 
-import pandas as pd
+def prepare_local_windows(data, selected, features):
+    """Extract original observations for selected investigation windows."""
 
+    windows = []
 
-CAUSAL_VARIABLES = [
-    "economic_context",
-    "network_exposure",
-    "structuring_score",
-    "cross_border_ratio",
-    "transaction_volume",
-]
+    for _, window in selected.iterrows():
 
+        # Get observations from the selected account
+        account = data[data["account_id"] == window["account_id"]].sort_values("time").reset_index(drop=True)
 
-def prepare_local_samples(df, selections, window_size=30 ):
+        # Get the selected window positions
+        start = int(window["start_idx"])
+        end = int(window["end_idx"])
 
-    samples = []
+        # Extract observations and observable features
+        local_data = account.iloc[start:end + 1][["time"] + features].copy()
 
-    for strategy, windows in selections.items():
+        # Check that the correct observations were extracted
+        if (len(local_data) != end - start + 1 or local_data["time"].iloc[0] != window["start_time"] or local_data["time"].iloc[-1] != window["end_time"]):
+            raise ValueError("Window does not match original data")
 
-        for _, window in windows.iterrows():
+        windows.append({
+            "account_id": window["account_id"],
+            "start_time": window["start_time"],
+            "end_time": window["end_time"],
+            "routing_score": window["routing_score"],
+            "data": local_data,
+        })
 
-            account_id = window["account_id"]
-            start = window["start_time"]
-            end = window["end_time"]
-
-            # Get all observations for this account
-            account_df = df[df["account_id"] == account_id].sort_values("time")
-
-            # Keep observations up to the selected window's end
-            history = account_df[account_df["time"] <= end]
-
-            # Select the last 30 observations
-            local_df = history.tail(window_size).copy()
-
-            # Skip windows without enough history
-            if len(local_df) != window_size:
-                continue
-
-            # Ensure the selected routing window is included
-            start_end_filter = (account_df["time"] >= start) & (account_df["time"] <= end)
-            selected_times = account_df[start_end_filter]["time"]
-
-            if len(selected_times) != end - start + 1:
-                continue
-
-            # Keep only observable causal variables
-            causal_data = local_df[CAUSAL_VARIABLES].copy()
-
-            samples.append({
-                "investigation_id": f"{strategy}_{len(samples):03d}",
-                "strategy": strategy,
-                "account_id": account_id,
-                "routing_start": start,
-                "routing_end": end,
-                "causal_start": local_df["time"].iloc[0],
-                "causal_end": local_df["time"].iloc[-1],
-                "data": causal_data,
-            })
-
-    return samples
+    return windows

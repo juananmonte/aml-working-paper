@@ -28,6 +28,7 @@ dependencies = [
     "notebook",
     "numpy",
     "pandas",
+    "pyarrow>=26.0.0",
     "pymc>=6.3.2",
     "pytensor>=3.3.3",
     "pytest",

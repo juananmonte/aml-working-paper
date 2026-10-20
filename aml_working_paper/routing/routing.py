@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 import pymc as pm
+from scipy.special import logsumexp
 
 ### Shannon entropy (pymc is faster than scipy's entropy)
 ### entropy = entropy(probabilities, axis=0)
@@ -88,9 +89,9 @@ def filter_posterior_draws(sequence, pi, current, mu, sigma):
         ### add the compatibility to the belief of the current aml state
         log_joint = log_predicted + log_emission
         ### density predicted log of the sum of the aml states
-        log_evidence = pm.math.logsumexp(log_joint, axis=1)
+        log_evidence = logsumexp(log_joint, axis=1)
         ### get the log of the mean fo the predicted densities
-        log_predictive = pm.math.logsumexp((log_evidence) - np.log(no_samples))
+        log_predictive = logsumexp(log_evidence - np.log(no_samples))
         log_filtered = log_joint - log_evidence[:, None]
 
         ### if an observations has a higher density then it is less surprising. And viceversa. 
@@ -115,7 +116,7 @@ def filter_posterior_draws(sequence, pi, current, mu, sigma):
 
         ### Hidden Markov model prediction step
         if i < no_periods - 1:
-            log_predicted = pm.math.logsumexp(log_filtered[:, :, None] + log_A, axis=1)
+            log_predicted = logsumexp(log_filtered[:, :, None] + log_A,axis=1)
 
     return {
         "predicted_probabilities": predicted_history,
