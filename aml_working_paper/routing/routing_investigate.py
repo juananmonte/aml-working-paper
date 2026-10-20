@@ -1,5 +1,3 @@
-"""Select AML investigation windows using Bayesian routing signals."""
-
 import numpy as np
 import pandas as pd
 
