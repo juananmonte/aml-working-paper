@@ -139,7 +139,7 @@ def extract_posterior_draws(aligned_trace):
     posterior = aligned_trace.posterior
     ### get the estimated values from the model
     initial_probs = posterior["pi"].values
-    transitions = posterior["A"].values
+    transitions = posterior["current"].values
     state_means = posterior["mu"].values
     state_stds = posterior["sigma"].values
     ### get the dimentions used to train the model Ex: 4 chains, 200 samples, 3 aml states and 3 observed variables
