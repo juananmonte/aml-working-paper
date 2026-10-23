@@ -1,3 +1,6 @@
+# Generated independent experiment runs
+/reports/runs/
+
 # Mac OS-specific storage files
 .DS_Store
 
@@ -187,3 +190,4 @@ cython_debug/
 *.jl.mem
 /deps/deps.jl
 /deps/build.log
+
