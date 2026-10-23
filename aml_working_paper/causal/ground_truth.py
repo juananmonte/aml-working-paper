@@ -5,10 +5,10 @@ def get_ground_truth():
 
     # Relationships within the same time period
     current_edges = [
-        ("economic_context", "network_exposure"),
+        ("economic_context", "account_exposure"),
         ("economic_context", "transaction_volume"),
-        ("network_exposure", "aml_state"),
-        ("network_exposure", "cross_border_ratio"),
+        ("account_exposure", "aml_state"),
+        ("account_exposure", "cross_border_ratio"),
         ("aml_state", "structuring_score"),
         ("aml_state", "cross_border_ratio"),
         ("aml_state", "transaction_volume"),

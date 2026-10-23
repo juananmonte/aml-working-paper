@@ -1,9 +1,9 @@
 
 # Direct relationships between observable variables
 TRUE_EDGES = [
-    ("economic_context", "network_exposure"),
+    ("economic_context", "account_exposure"),
     ("economic_context", "transaction_volume"),
-    ("network_exposure", "cross_border_ratio"),
+    ("account_exposure", "cross_border_ratio"),
     ("structuring_score", "transaction_volume"),
 ]
 

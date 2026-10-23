@@ -40,7 +40,7 @@ def generate_aml_score(aml_state, rng):
     aml_score = float(expit(structuring))
     return aml_score
 
-def generate_cross_border_score(account_exposure, aml_score, rng):
+def generate_cross_border_score(account_exposure, aml_state, rng):
     """
     Takes the account exposure and aml score and generates a score regarding the account's interaction
     with other outside networks. 
@@ -50,7 +50,7 @@ def generate_cross_border_score(account_exposure, aml_score, rng):
 
     noise = rng.normal(0, 0.6)
     ### -2.5, 1.5 and 0.8 are similar to other paper's synthetic generation data process
-    linear_predictor = (-2.5 + 1.5 * account_exposure + 0.8 * aml_score + noise)
+    linear_predictor = (-2.5 + 1.5 * account_exposure + 0.8 * aml_state + noise)
     cross_border_ratio_score = float(expit(linear_predictor))
     return cross_border_ratio_score
 

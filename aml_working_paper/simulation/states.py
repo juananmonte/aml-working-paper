@@ -19,26 +19,26 @@ BASE_TRANSITION = np.array(
 NETWORK_EXPOSURE_EFFECT = np.array([-1.0, 0.25, 1.25], dtype=float)
 
 
-def transition_probabilities(previous_state, network_exposure):
+def transition_probabilities(previous_state, account_exposure):
     """
     Calculate the probability of change for AML states taking into account the account's exposure.
     """
     ### create a base to start the calculations
     base = BASE_TRANSITION[previous_state]
     ### Adjust the the base and network exposure by penalizing the highest aml states
-    adjusted = (np.log(base) + network_exposure * NETWORK_EXPOSURE_EFFECT)
+    adjusted = (np.log(base) + account_exposure * NETWORK_EXPOSURE_EFFECT)
     ### softmax so values are between 0 and 1
     probabilities = softmax(adjusted)
     return probabilities
 
 
-def sample_next_state(previous_state, network_exposure, rng):
+def sample_next_state(previous_state, account_exposure, rng):
     """
     Select the next aml state given the previous state, network exposure and the probabilities
     This function is used in simulate_account() (equations.py) in order to assign the aml state given the orevious state info (previous_aml_state)
     """
     
-    probabilities = transition_probabilities(previous_state, network_exposure)
+    probabilities = transition_probabilities(previous_state, account_exposure)
     ### select a state between 0, 1 and 2 using the calculted probabilities
     next_aml_state = int(rng.choice(3, p=probabilities))
     return next_aml_state

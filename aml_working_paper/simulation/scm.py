@@ -2,11 +2,11 @@
 # True causal relationships in our synthetic DGP
 
 TRUE_EDGES = [
-    ("economic_context", "network_exposure"),
-    ("network_exposure", "aml_state"),
+    ("economic_context", "account_exposure"),
+    ("account_exposure", "aml_state"),
     ("economic_context", "transaction_volume"),
     ("aml_state", "transaction_volume"),
-    ("network_exposure", "cross_border_ratio"),
+    ("account_exposure", "cross_border_ratio"),
     ("aml_state", "cross_border_ratio"),
     ("aml_state", "structuring_score"),
     ("structuring_score", "transaction_volume"),
