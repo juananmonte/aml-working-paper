@@ -5,6 +5,7 @@
 PROJECT_NAME = aml-working-paper
 PYTHON_VERSION = 3.13
 PYTHON_INTERPRETER = python
+CONFIG ?= configs/demo.toml
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -36,15 +37,15 @@ clean:
 .PHONY: lint lint-py
 lint: lint-py
 lint-py:
-	ruff format --check
-	ruff check
+	uv run --locked ruff format --check
+	uv run --locked ruff check
 
 ## Format source code with ruff
 .PHONY: format format-py
 format: format-py
 format-py:
-	ruff check --fix
-	ruff format
+	uv run --locked ruff check --fix
+	uv run --locked ruff format
 
 
 
@@ -54,7 +55,7 @@ format-py:
 .PHONY: test test-py
 test: test-py
 test-py:
-	python -m pytest tests
+	uv run --locked python -m pytest tests
 
 
 
@@ -74,7 +75,7 @@ create_environment-py:
 .PHONY: requirements requirements-py
 requirements: requirements-py
 requirements-py:
-	uv sync
+	uv sync --locked
 	
 
 
@@ -92,7 +93,32 @@ requirements-py:
 .PHONY: data data-py
 data: data-py
 data-py: requirements
-	$(PYTHON_INTERPRETER) aml_working_paper/data/make_dataset.py
+	uv run --locked python -m aml_working_paper.run --config "$(CONFIG)" --stop-after data
+
+## Run every stage with CONFIG (default: demo)
+.PHONY: reproduce
+reproduce:
+	uv run --locked python -m aml_working_paper.run --config "$(CONFIG)"
+
+## Run a short smoke check (not research-quality sampling)
+.PHONY: demo
+demo:
+	uv run --locked python -m aml_working_paper.run --config configs/demo.toml
+
+## Run the current notebook experiment settings
+.PHONY: experiment
+experiment:
+	uv run --locked python -m aml_working_paper.run --config configs/experiment.toml
+
+## Run from simulation through HMM training
+.PHONY: train
+train:
+	uv run --locked python -m aml_working_paper.run --config "$(CONFIG)" --stop-after train
+
+## Run from simulation through routing
+.PHONY: routing
+routing:
+	uv run --locked python -m aml_working_paper.run --config "$(CONFIG)" --stop-after routing
 
 
 
@@ -115,3 +141,4 @@ export PRINT_HELP_PYSCRIPT
 
 help:
 	@$(PYTHON_INTERPRETER) -c "${PRINT_HELP_PYSCRIPT}" < $(MAKEFILE_LIST) 2>/dev/null || python3 -c "${PRINT_HELP_PYSCRIPT}" < $(MAKEFILE_LIST) 2>/dev/null || grep -E "^##" $(MAKEFILE_LIST) | sed 's/^## //'
+
