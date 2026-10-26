@@ -43,7 +43,11 @@ def load_config(path: Path) -> dict:
         "cores",
         "random_repeats",
     }
-    expected = integer_keys | {"target_accept"}
+    expected = integer_keys | {
+    "target_accept",
+    "causal_alpha",
+    "causal_methods",
+        }
     if set(config) != expected:
         raise ValueError(
             f"Config keys: missing={sorted(expected - set(config))}, "
@@ -54,6 +58,25 @@ def load_config(path: Path) -> dict:
         if type(config[key]) is not int or config[key] < minimum:
             raise ValueError(f"{key} must be an integer >= {minimum}")
     accept = config["target_accept"]
+    alpha = config["causal_alpha"]
+
+    if type(alpha) not in (int, float) or not 0 < alpha < 1:
+        raise ValueError("causal_alpha must be between 0 and 1")
+
+    methods = config["causal_methods"]
+
+    if "PC" not in methods:
+        raise ValueError(
+            "PC is required for the repeated random baseline"
+        )
+
+    if (
+        not isinstance(methods, list)
+        or not methods
+        or len(methods) != len(set(methods))
+        or any(method not in {"PC", "FCI"} for method in methods)
+    ):
+        raise ValueError("causal_methods must contain unique PC/FCI values")
     if type(accept) not in (int, float) or not 0 < accept < 1:
         raise ValueError("target_accept must be between 0 and 1")
     if config["seed"] >= 2**32 - config["random_repeats"]:
@@ -150,6 +173,9 @@ def _run_causal(val_df, candidates, config: dict, output: Path) -> None:
         select_investigations,
         validate_investigations,
     )
+    from aml_working_paper.causal.evaluation import ( evaluate_skeleton,
+    summarize_causal_results,
+    )
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -175,10 +201,21 @@ def _run_causal(val_df, candidates, config: dict, output: Path) -> None:
         data.to_parquet(
             output / f"data/processed/discovery_{strategy}.parquet", index=False
         )
-        graphs = {
-            "PC": discover_pc(data, FEATURES).G,
-            "FCI": discover_fci(data, FEATURES),
-        }
+        graphs = {}
+
+        if "PC" in config["causal_methods"]:
+            graphs["PC"] = discover_pc(
+                data,
+                FEATURES,
+                alpha=config["causal_alpha"],
+            ).G
+
+        if "FCI" in config["causal_methods"]:
+            graphs["FCI"] = discover_fci(
+                data,
+                FEATURES,
+                alpha=config["causal_alpha"],
+            )
         for method, graph in graphs.items():
             edges = _named_edges(graph, FEATURES)
             graph_edges[f"{method}/{strategy}"] = edges
@@ -200,9 +237,31 @@ def _run_causal(val_df, candidates, config: dict, output: Path) -> None:
                 f"Random seed {seed} could not meet the investigation budget"
             )
         data = prepare_discovery_data(prepare_local_windows(val_df, selected, FEATURES))
-        edges = _named_edges(discover_pc(data, FEATURES).G, FEATURES)
+        edges = _named_edges(
+                    discover_pc(
+                        data,
+                        FEATURES,
+                        alpha=config["causal_alpha"],
+                    ).G,
+                    FEATURES,
+                )
         random_scores.append({"seed": seed, **evaluate_skeleton(edges)})
-    pd.DataFrame(random_scores).to_csv(output / "reports/random_pc.csv", index=False)
+    random_df = pd.DataFrame(random_scores)
+
+    random_df.to_csv(
+        output / "reports/random_pc.csv",
+        index=False,
+    )
+
+    summary = summarize_causal_results(
+        evaluation,
+        random_df,
+    )
+
+    _save_json(
+        output / "reports/causal_summary.json",
+        summary,
+    )
 
     ax = (
         evaluation.pivot(index="strategy", columns="method", values="f1")
