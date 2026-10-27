@@ -1,10 +1,16 @@
-# <p align="center"> aml-working-paper </p>
+# <p align="center"> Bayesian Uncertainty for Routing Local Causal Investigations: A Synthetic AML working paper </p>
 
-##### <p align="center"> [Juan Montenegro](https://your-homepage.com/), Author<sup>1</sup>, Author<sup>2</sup>
+##### <p align="center"> [Juan Montenegro](https://github.com/juananmonte), Author<sup>1</sup>
 
-##### <p align="center"> <sup>1</sup>Your Institution, City, Country; <br> <sup>2</sup>Your Second Institution, City, Country</p>
+##### <p align="center"> <sup>1</sup>Guatemala City, Guatemala; <br>
 
-AML working paper
+#
+The following working paper is an exploratory study of whether bayesian uncertainty regading anti-money laundering (AML) states can help select apropiate observation windows. The information in these windows are then passed through local causal investigation networks under a limited investigation budget.
+
+This working paper combines synthetic account trajectories, a Bayesian Hidden Markov Model (HMM), a window selection process based on uncertainty and predictive surprise, and local causal discovery. Selection strategies are compared with random selection by measuring recovery of known relationships in the data-generating process.
+
+This draft examines the approach in a controlled synthetic setting. Its findings are preliminary and do not establish effectiveness on real AML data.
+
 
 ## Project Organization
 
@@ -58,21 +64,24 @@ AML working paper
 ```
 
 
-> **Mode: structured** — pipeline-first, 5 modules for reusable, testable workflow. One-offs still go to `scripts/` or `notebooks/`.
-
-
-
 --------
 
-## Research Context
+# Research Context
 
-This project addresses [clearly state research question] through [brief methodology description]. Our work builds upon existing literature in [research domain] while introducing [key innovation(s)].[2,3](@ref)
+Anti-money laundering monitoring involves deciding which account activity deserves closer investigation. When investigation capacity is limited, selecting cases becomes part of the analytical problem.
 
-**Key Contributions**:
+A model may assign similar risk estimates to observations while expressing different levels of uncertainty about their underlying states. This raises a question: could that uncertainty help identify cases where further investigation would be informative?
 
-1. Contribution 1
-2. Contribution 2
-3. Contribution 3
+This study explores that possibility in a synthetic setting. A Bayesian hidden Markov model estimates latent AML states, and uncertainty and predictive surprise guide the selection of observation windows for local causal discovery. Because the data-generating process is known, the recovered relationships can be compared with a predefined reference structure.
+
+The objective is to assess whether these selection strategies improve structural recovery relative to random selection under the same investigation budget
+
+#
+# Research Question
+
+Can Bayesian AML-state uncertainty identify which cases deserve local causal investigation, improving causal mechanism recovery under a limited investigation budget?
+
+For this working paper , the investigation budget is  the number of observation windows selected for analysis. Causal recovery is assessed through recovery of relationships in the reference graph; it does not imply recovery of complete causal mechanisms or estimation of causal effects.
 
 --------
 
@@ -94,7 +103,7 @@ source .venv/bin/activate  # Unix/macOS
 uv sync
 ```
 
-### Data Acquisition
+### Synthetic Data Generation
 
 1. Download datasets from [DOI: 10.xxxx/zenodo.xxxxxx]/[Google Drive link]
 2. Place raw data in `data/raw/` following our [data documentation](docs/data_standards.md)
@@ -106,12 +115,16 @@ make data
 
 --------
 
-## Methodology
+# Methodology
 
-### Technical Framework
+The experiment consists of five stages:
 
-![Research Framework](reports/figures/methodological_framework.png)  
-*Figure 1: Architectural overview of our approach*
+1. Synthetic data generation. Simulate account trajectories with latent AML states and observed variables, including economic context, network exposure, structuring score, cross-border ratio, and transaction volume. The known data-generating process provides a reference for evaluating recovered relationships.
+2. Bayesian state estimation. Fit a Bayesian hidden Markov model to the observed account sequences. Posterior draws are aligned to address label switching before calculating state probabilities and routing scores.
+3. Investigation selection. Score candidate observation windows using uncertainty about the latent state, predictive surprise, or a combination of both. Each strategy selects windows under the same investigation budget.
+4. Local causal discovery. Apply the PC algorithm to the observations associated with the selected windows to estimate relationships among the observed variables.
+5. Evaluation. Compare the recovered graph structure with the reference structure using precision, recall, and F1. Compare the routing strategies with repeated random selection and examine variability across simulation seeds.
+The Bayesian model guides where to investigate; the causal discovery stage estimates local graph structure. Uncertainty and surprise serve as selection criteria and are not themselves evidence of a causal relationship.
 
 ### Experimental Design
 
@@ -122,64 +135,55 @@ make data
 | Training Protocol  | [Optimization strategy]          |
 | Evaluation Metrics | [List metrics with justification]|
 
+# Limitations
+
+This study is an exploratory pilot with several limitations:
+
+- Synthetic setting. The data follow a specified simulation process and do not capture the full complexity of real financial activity. Results do not establish effectiveness on real AML cases.
+- Model assumptions. The Bayesian hidden Markov model provides a simplified representation of account activity. Its uncertainty estimates depend on the model specification, priors, and available observations.
+- Local sample size and selection. Window size and selection affect the observations available for causal discovery. Selecting windows based on model scores may also change the dependence structure within the selected sample.
+- Causal discovery assumptions. The PC algorithm relies on assumptions about conditional independence and the underlying causal structure. Latent AML states and temporal dependence require particular care when interpreting relationships among observed variables.
+- Scope of evaluation. Graph recovery measures agreement with a specified reference structure. It does not establish that complete causal mechanisms have been recovered or that causal effects have been identified.
+- Investigation budget. The budget is represented by the number of selected windows. This simplifies practical investigation costs, which may vary substantially across cases.
+
 --------
 
 ## Reproducibility
 
-### Computational Environment
+## Installation
 
-- Exact package versions: `pip freeze > requirements.txt`
-- Docker image: [Available on Docker Hub](https://hub.docker.com)
-- Pre-trained models: Stored in `models/` with checksums
+This project uses Python 3.13 and [uv](https://docs.astral.sh/uv/) to manage its environment and dependencies.
 
-### Workflow Automation
+Clone the repository:
 
 ```bash
-# Full pipeline execution
-make all  # Processes data, trains models, generates reports
-
-# Individual components
-make train      # Model training
-make evaluate   # Performance analysis
-make visualize  # Generate result figures
+git clone https://github.com/juananmonte/aml-working-paper.git
+cd aml-working-paper
 ```
 
---------
+Install the dependencies using the committed lockfile:
 
-## Experimental Results
+```bash
+uv sync --locked
+```
 
-### Benchmark Performance
+## Reproducing the experiments
 
-| Model Variant       | Accuracy (↑) | F1 Score (↑) | Inference Time (ms) |
-|---------------------|--------------|--------------|---------------------|
-| Baseline           | 0.72         | 0.68         | 15.2               |
-| **Our Approach**   | **0.85**     | **0.82**     | 18.7               |
+Run the complete pipeline from the repository root:
 
-### Visualization
+```bash
+uv run --locked python -m aml_working_paper.run \
+  --config configs/experiment.toml \
+  --output-dir reports/runs/research-seed42
+```
 
-![Performance Comparison](reports/figures/results_comparison.png)  
-*Figure 2: Comparative analysis across evaluation metrics*
+The configuration file controls the simulation, Bayesian sampling, window selection, and evaluation settings.
 
---------
+The output directory can be named freely. Its name does not set the experiment seed: the seed is specified in the configuration file.
+Use a separate output directory for each experiment to keep results organized.
 
-## Contributing
+The `--locked` option requires the dependency lockfile to remain consistent with the project configuration.
 
-We welcome contributions following academic collaboration standards:
-
-1. Open an issue to discuss proposed changes
-2. Create feature branch: `git checkout -b feature/your-contribution`
-3. Implement changes with test cases
-4. Update documentation accordingly
-5. Submit pull request with:
-   - Technical description
-   - Empirical validation
-   - Citation for new methodologies
-
-**Code Standards**:
-
-- PEP8 compliance enforced via `flake8`
-- Type hints required for public functions
-- 90%+ test coverage required for merged code
 
 --------
 
@@ -205,6 +209,6 @@ If you use this work, please cite:
 }
 ```
 
-## Acknowledgements
+# Acknowledgements
 
-This research was supported by [Funding Agency] under Grant No. XXXXXX. Computational resources provided by [Institution/Cloud Provider].
+The repository was made using [Cookiecutter Scientific Research](https://github.com/Vncntvx/cookiecutter-scientific-research), which provided the initial project structure and development tooling.
