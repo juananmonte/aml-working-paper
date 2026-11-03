@@ -135,6 +135,18 @@ The Bayesian model guides where to investigate; the causal discovery stage estim
 | Training Protocol  | [Optimization strategy]          |
 | Evaluation Metrics | [List metrics with justification]|
 
+
+# Preliminary results
+
+The experiments demonstrate an end-to-end pipeline connecting Bayesian state estimation, investigation selection, and local causal discovery in a controlled synthetic setting. The results examined so far do not establish a consistent improvement from uncertainty-based selection over random selection. Performance varies across simulation runs, and repeated random selection frequently matches or exceeds the uncertainty strategy.
+
+For example, in the experiment with simulation seed 46, uncertainty-based selection achieved an F1 score of 0.750. Across 50 random-selection repetitions, the mean F1 was approximately 0.720, with a standard deviation of 0.073. Random selection matched or exceeded the uncertainty score in 58% of repetitions.
+
+In that experiment, uncertainty, surprise, combined selection, and the single reported random selection all achieved an F1 score of
+0.750 under both PC and FCI. These findings support the feasibility of the experimental pipeline, while leaving the proposed benefit of uncertainty-guided investigation unconfirmed under the tested settings.
+
+
+
 # Limitations
 
 This study is an exploratory pilot with several limitations:

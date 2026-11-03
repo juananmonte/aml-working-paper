@@ -3,42 +3,47 @@
 
 import pandas as pd
 import numpy as np
-from numpy.random import Generator
 from aml_working_paper.simulation.states import sample_next_state
 from scipy.special import expit
 
 
-def generate_economic_context(previous_context, rng, rho=0.8, sigma=0.5):
+def generate_economic_context(economic_context, rng, rho=0.8, sigma=0.5):
     """
-    Generate economic context using an AR(1) process.
+    Generate a simple economic context using an AR(1) process. 0 No change in the economy's situation. 1 Change in the economy's situation. 
+    Future work could include inflation, tourism or other exogenous variables. 
     """
+    ### Add random noise (shock) for randomness
     shock = rng.normal(0, sigma)
-    economic_context = float(rho * previous_context + shock)
+    economic_context = float(rho * economic_context + shock)
     return economic_context
 
 def generate_account_exposure(economic_context, rng):
     """
-    Return a number between 0 an 1 of how much an account is exposed in the network 
-    by the amount of interactions one account has with others. 
+    Returns a number between 0 an 1 of how much an account is exposed to risky behavior in the network by the amount of interactions one account has with others. 
     Random noise is added so accounts with same economic context don't end up with the same amount of interactions.  
     """
+    ### add random (normal) noise so not all accounts have the same behaviour
     random_noise = rng.normal(0, 0.7)
-    ### -2 and 8 are similar to other paper's synthetic generation data process
+    ### -2 was selected so, when economic_context and random_noise is 0 or really low, the exposition is low too. 0.8 is to make the exposure rise/decrease whit the economic context
+    ### both values are arbitrary
     exposure = -2 + 0.8 * economic_context + random_noise
+    ### expit (sigmoid) is used to convert any number to a value between 0 and 1. Negative values get close to 0 and positive values get close to 1. 
+    ### This has been done due to getting negative AML states. 
     account_exposure = float(expit(exposure))
     return account_exposure
 
-def generate_aml_score(aml_state, rng):
+def generate_structuring_score(aml_state, rng):
     """
-    Takes an aml_state and gives a score based on the severity of that state. 
+    Simulates the practice of breaking down large transactions into smaller ones 
     So, a higher aml_state equals a higher aml score.
-    Noise is added to make sure higher aml states have a small higher score but not enough to make it too easy for the model
+    Noise is added to make sure higher aml states have a small high score but not enough to make it too easy for the model
     """
     noise = rng.normal(0, 0.6)
-    ### -2 and 1.3 are similar to other paper's synthetic generation data process
+    ### When aml state is 0, -2 becomes a smaller number when passes through sigmoid. -2 and 1.3 are arbitrary values 
     structuring = -2 + 1.3 * aml_state + noise
-    aml_score = float(expit(structuring))
-    return aml_score
+    ### sigmoid is used to avoid negative values and giving accounts with lower aml states a higher structuring score
+    structuring_score = float(expit(structuring))
+    return structuring_score
 
 def generate_cross_border_score(account_exposure, aml_state, rng):
     """
@@ -47,27 +52,29 @@ def generate_cross_border_score(account_exposure, aml_state, rng):
     This is under the supposition that a higher account exposure and a higher aml score is proportional to
     a higher cross border ratio score. 
     """
-
     noise = rng.normal(0, 0.6)
-    ### -2.5, 1.5 and 0.8 are similar to other paper's synthetic generation data process
+    ### -2.5, 1.5 and 0.8 are arbitrary values. Yet, they follow the same logic as generate_structuring_score and generate_account_exposure
     linear_predictor = (-2.5 + 1.5 * account_exposure + 0.8 * aml_state + noise)
-    cross_border_ratio_score = float(expit(linear_predictor))
-    return cross_border_ratio_score
+    ### sigmoid is used again to avoid negative values and to avoid the same issue as generate_structuring_score
+    cross_border_score = float(expit(linear_predictor))
+    return cross_border_score
 
 def generate_transaction_volume(economic_context, aml_state, structuring_score, rng):
     """
     It generates the volume of transactions for an account
     """
+    ### 2.5, 0.25, 0.20 and 0.60 are arbitrary values.
     log_mean = (2.5 + 0.25 * economic_context + 0.20 * aml_state + 0.60 * structuring_score)
+    ### Lognormal is used so the distribution of the transactions is positive, to the right and with many transactions accumulated in the beginning.  
     volume = float(rng.lognormal(log_mean, 0.3))
     return volume
 
 def simulate_account(periods=100, initial_aml_state=0, seed=42, economic_context_path=None, initial_economic_context=0.0):
     """
-    Simulate one account over several time periods.
+    Simulate one account's behavior over many time periods.
     """
 
-    ### Generate different pseudo random from a random seeds. This is done for reproducibility.
+    ### Generate different pseudo random from a random seed. This is done for reproducibility.
     seed_sequence = np.random.SeedSequence(seed)
     ### Get 6 random seeds for the five first generate functions and the sample_next_state.
     if economic_context_path is None:
@@ -80,8 +87,11 @@ def simulate_account(periods=100, initial_aml_state=0, seed=42, economic_context
     else:
         child_seeds = seed_sequence.spawn(5)
         start = 0
-
-    rng_network = np.random.default_rng(child_seeds[start])
+    ### create random generated numbers for all equations. 
+    ### This gives more independence and control when experimenting
+    ### If, for example, structuring score equations is going to be experimented on, the random number will only change that equation distribution
+    ### it won't change the other equations results. 
+    rng_account = np.random.default_rng(child_seeds[start])
     rng_state = np.random.default_rng(child_seeds[start + 1])
     rng_structuring = np.random.default_rng(child_seeds[start + 2])
     rng_cross_border = np.random.default_rng(child_seeds[start + 3])
@@ -99,9 +109,9 @@ def simulate_account(periods=100, initial_aml_state=0, seed=42, economic_context
         else:
             economic_context = float(economic_context_path[t])
 
-        account_exposure = generate_account_exposure(economic_context, rng_network)
+        account_exposure = generate_account_exposure(economic_context, rng_account)
         aml_state = sample_next_state(previous_state=previous_aml_state, account_exposure=account_exposure, rng=rng_state)
-        structuring_score = generate_aml_score(aml_state, rng_structuring)
+        structuring_score = generate_structuring_score(aml_state, rng_structuring)
         cross_border_ratio = generate_cross_border_score(account_exposure, aml_state, rng_cross_border)
         transaction_volume = generate_transaction_volume(economic_context, aml_state, structuring_score, rng_volume)
 
@@ -135,6 +145,7 @@ def simulate_economic_context(periods, seed=42, initial_context=0.0):
     values = []
     for _ in range(periods):
         context = generate_economic_context(context, rng)
+        print(context)
         values.append(context)
 
     values = np.array(values)

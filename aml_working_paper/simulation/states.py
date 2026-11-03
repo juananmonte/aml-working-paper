@@ -3,11 +3,11 @@ import pandas as pd
 from scipy.special import softmax
 
 
-### The values in base transitions are darbitrary. Nonetheless, the values have been selected in such a way that
+### The values in base transitions are arbitrary. Nonetheless, the values have been selected in such a way that
 ### 1. There is consistence between periods: diagonal values are higher in order to state that there are changes between periods
 ### 2. Changing probability: make sure there is a probabilty of change between states. Ex: 10% to 75% in period 2
 ### 3. Reversing: an account can also go back to having a "normal" aml state
-BASE_TRANSITION = np.array(
+base_transition = np.array(
     [
     [0.94, 0.05, 0.01],
     [0.10, 0.75, 0.15],
@@ -15,8 +15,8 @@ BASE_TRANSITION = np.array(
     ],
     dtype=float,
 )
-
-NETWORK_EXPOSURE_EFFECT = np.array([-1.0, 0.25, 1.25], dtype=float)
+base_transition
+account_exposure_effect = np.array([-1.0, 0.25, 1.25], dtype=float)
 
 
 def transition_probabilities(previous_state, account_exposure):
@@ -24,9 +24,9 @@ def transition_probabilities(previous_state, account_exposure):
     Calculate the probability of change for AML states taking into account the account's exposure.
     """
     ### create a base to start the calculations
-    base = BASE_TRANSITION[previous_state]
+    base = base_transition[previous_state]
     ### Adjust the the base and network exposure by penalizing the highest aml states
-    adjusted = (np.log(base) + account_exposure * NETWORK_EXPOSURE_EFFECT)
+    adjusted = (np.log(base) + account_exposure * account_exposure_effect)
     ### softmax so values are between 0 and 1
     probabilities = softmax(adjusted)
     return probabilities
