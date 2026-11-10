@@ -32,7 +32,9 @@ def build_candidate_windows(routing_df, window_size=10):
 
 def select_investigations(candidates, budget=10, strategy="uncertainty", random_state=42):
     """
-    Select the windows for causal inference without overlapping.
+    Select the windows that were candidates for different accounts.
+    The windows will be selected according to the the higher values for the selected strategy
+    These will be used to find a AML representative causal structure for all the accounts.
     """
 
     ranked = candidates.copy()

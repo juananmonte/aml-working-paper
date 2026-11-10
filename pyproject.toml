@@ -29,6 +29,7 @@ dependencies = [
     "notebook",
     "numpy",
     "pandas",
+    "plotly>=7.1.0",
     "pyarrow>=26.0.0",
     "pymc>=6.3.2",
     "pytensor>=3.3.3",
