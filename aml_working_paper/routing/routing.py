@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 import pymc as pm
-from scipy.special import logsumexp
+from scipy.special import logsumexp, rel_entr
 
 ### Shannon entropy (pymc is faster than scipy's entropy)
 ### entropy = entropy(probabilities, axis=0)
@@ -10,8 +10,7 @@ from scipy.special import logsumexp
 
 def normalized_entropy(probabilities):
     """
-    How uncertain is the Markov model about the current state of an account BETWEEN their values
-    probabilities. 
+    How uncertain is the HMM about the current aml state of an account given their probabilities
     Shannon entropy goes up when the probabilities between the three aml states are too similar. 
     """
     ### Clip is used in order to remove probabilities that might be too small and python could assign as inf. Ex log(0).
@@ -19,35 +18,38 @@ def normalized_entropy(probabilities):
     ### Shannon entropy is used because there could be cases where the probabilities for all 3 states are too similar.
     shannon_entropy = -np.sum(probabilities * np.log(probabilities), axis=-1)
     number_states = probabilities.shape[-1]
-    ### normalize entropy so it is eassier to interpret
+    ### normalize entropy so it is easier to interpret
     normal_shannon = shannon_entropy / np.log(number_states)
     return normal_shannon
 
 
 def divergence_KL(state_before, state_after):
     """
+    Get the Kullback-Leibler divergence
     Measure the change in probabilities of the AML states when new information (transactions) is taken into account.
-    The higher the change, the more the divergence
-
+    The higher the change, the higher the divergence. Therefore, the HMM updates its beliefs. 
     """
+    ### Filter out really small values
     state_before = np.clip(state_before, 1e-8, 1.0)
     state_after = np.clip(state_after, 1e-8, 1.0)
     ### calculate the divergence...
-    divergence = state_before * np.log(state_before / state_after)
+    divergence = rel_entr(state_before, state_after).sum(axis=-1)
     ### ...and add the divergence for all aml states
     states_contibutions = np.sum(divergence, axis=-1)
     return states_contibutions
 
 def normal_dist_in_log(x, mu, sigma):
     """
+    How compatible is a single observation's characteristic against each one of the three AML states distributions for that characteristic
     Calculate the log density of a normal distribution in order to get the log emissions
     """
     ### the logarithmic representation for the constant term in the normal distribution formula
     constant = -0.5 * np.log(2 * np.pi)
-    ### 
+    ### how far is the characteristic from the estimated mean in deviation standard
     standardized_distance = (x[None, None, :] - mu) / sigma
     log_density = ((constant) - (np.log(sigma)) - (0.5 * (standardized_distance**2)))
-    return log_density.sum(axis=-1)
+    log_density = log_density.sum(axis=-1)
+    return log_density
 
 
 def filter_posterior_draws(sequence, pi, current, mu, sigma):
@@ -59,7 +61,7 @@ def filter_posterior_draws(sequence, pi, current, mu, sigma):
     how surprising was the observation
     how much did the beliefs change
     """
-    ### get the shapes in order to store the results correclty
+    ### get the shapes in order to store the results correclty and base probabilities (pi)
     no_samples, no_states = pi.shape
     no_periods = len(sequence)
 
@@ -72,26 +74,29 @@ def filter_posterior_draws(sequence, pi, current, mu, sigma):
     expected_state_entropy = np.zeros(no_periods)
     parameter_disagreement = np.zeros(no_periods)
 
-    ### define a base distribuion for the hidden states. This is used for the bayesian update process
+    ### define a base distribuion for the hidden states.
     log_predicted = np.log(pi)
+    ### the transitionprobabilities between the three aml states
     ### current contains the present transition matrices
     log_A = np.log(current)
 
+    ### bayesian update
     for i in range(no_periods):
 
-        ### exp is used to save the mean of the probabilities for each aml state in order to check the varaibility
+        ### exp is used to save the mean of the probabilities for each aml state in order to check the variability
         ### betwwen the posterior parameters
         predicted = np.exp(log_predicted)
         predicted_history[i] = predicted.mean(axis=0)
 
         ### get log emission to check thecompatibility of the observation and the current aml state
         log_emission = normal_dist_in_log(sequence[i], mu, sigma)
-        ### add the compatibility to the belief of the current aml state
+        ### add the compatibility of the observation with the prediction made
         log_joint = log_predicted + log_emission
-        ### density predicted log of the sum of the aml states
+        ### normalizes log joint so values are between 0and 1
         log_evidence = logsumexp(log_joint, axis=1)
-        ### get the log of the mean fo the predicted densities
+        ### get the log of the mean fo the predicted densities (log evidence)
         log_predictive = logsumexp(log_evidence - np.log(no_samples))
+        ### Get updated probabilities of the aml states
         log_filtered = log_joint - log_evidence[:, None]
 
         ### if an observations has a higher density then it is less surprising. And viceversa. 
@@ -102,10 +107,10 @@ def filter_posterior_draws(sequence, pi, current, mu, sigma):
         mean_filtered = filtered.mean(axis=0)
         filtered_history[i] = mean_filtered
 
-        ### use shannon entropy
+        ### use shannon entropy for the means
         uncertainty[i] = normalized_entropy(mean_filtered)
 
-        ### ge the entropy for each sample and then get the mean of it
+        ### ge the uncertainty of the predcited aml states for each sample and then get the mean of it. 
         entropy_per_sample = normalized_entropy(filtered)
         expected_state_entropy[i] = entropy_per_sample.mean()
 
@@ -166,6 +171,7 @@ def sequence_results_to_dataframe(account_id, results):
 
     table = pd.DataFrame({
         "account_id": account_id,
+        ### order time values so they match the original ones
         "time": np.arange(no_periods),
         "p_state_0": probabilities[:, 0],
         "p_state_1": probabilities[:, 1],

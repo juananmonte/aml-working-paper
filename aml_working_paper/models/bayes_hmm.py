@@ -85,13 +85,18 @@ def build_hmm_model(sequences):
     n_features = data.shape[2]
 
     with pm.Model() as model:
+        ### using Dricjlet, create a probability distribution that, when added, gives 1 for both the initial probabilitie (of the three possible aml state)
+        ### and the transition matrix (the change from one state to another for each aml state)
         initial_probs = pm.Dirichlet("pi", a=np.ones(n_states))
-        ### describe the probability of changing aml states
         transition_matrix = pm.Dirichlet("current", a=np.ones((n_states, n_states)), shape=(n_states, n_states))
+        ### Normal distribution of mu to get uncertainty
         state_means = pm.Normal("mu", mu=0, sigma=2,shape=(n_states, n_features))
+        ### Half normal is used so there are no negative values 
         state_stds = pm.HalfNormal("sigma", sigma=1, shape=(n_states, n_features))
         observations = pt.as_tensor_variable(data)
+        ### Get how compatible is a set of dats with the HMM parameters
         log_likelihood = forward_log_likelihood(observations, initial_probs, transition_matrix, state_means, state_stds)
+        ### add the log likelihood and update priors
         pm.Potential("hmm_likelihood",log_likelihood)
 
     return model
