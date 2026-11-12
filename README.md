@@ -85,35 +85,6 @@ For this working paper , the investigation budget is  the number of observation 
 
 --------
 
-## Installation
-
-### System Requirements
-
-- ​**OS**: Linux/macOS/Windows (Tested on Ubuntu 22.04 LTS)
-- ​**Python**: ≥3.10
-- ​**Hardware**: [Specify if needed, e.g., NVIDIA GPU with CUDA 12.x]
-
-### Environment Setup
-
-```bash
-# Create virtual environment with uv (recommended)
-uv venv
-source .venv/bin/activate  # Unix/macOS
-# .venv\Scripts\activate   # Windows
-uv sync
-```
-
-### Synthetic Data Generation
-
-1. Download datasets from [DOI: 10.xxxx/zenodo.xxxxxx]/[Google Drive link]
-2. Place raw data in `data/raw/` following our [data documentation](docs/data_standards.md)
-3. Run preprocessing:
-
-```bash
-make data
-```
-
---------
 
 # Methodology
 
@@ -166,6 +137,32 @@ This study is an exploratory pilot with several limitations:
 
 This project uses Python 3.13 and [uv](https://docs.astral.sh/uv/) to manage its environment and dependencies.
 
+### System Requirements
+
+- ​**OS**: Linux/macOS/Windows (Tested on Ubuntu 22.04 LTS)
+- ​**Python**: ≥3.10
+- ​**Hardware**: [Specify if needed, e.g., NVIDIA GPU with CUDA 12.x]
+
+### Environment Setup
+
+```bash
+# Create virtual environment with uv (recommended)
+uv venv
+source .venv/bin/activate  # Unix/macOS
+# .venv\Scripts\activate   # Windows
+uv sync
+```
+
+### Synthetic Data Generation
+
+1. Download datasets from [DOI: 10.xxxx/zenodo.xxxxxx]/[Google Drive link]
+2. Place raw data in `data/raw/` following our [data documentation](docs/data_standards.md)
+3. Run preprocessing:
+
+```bash
+make data
+```
+
 Clone the repository:
 
 ```bash
@@ -181,12 +178,14 @@ uv sync --locked
 
 ## Reproducing the experiments
 
-Run the complete pipeline from the repository root:
+On   configs/experiment.toml set the desired parameters to evaluate. 
+
+Open a new terminal and run:
 
 ```bash
 uv run --locked python -m aml_working_paper.run \
   --config configs/experiment.toml \
-  --output-dir reports/runs/research-seed42
+  --output-dir reports/runs/{experiment-name}
 ```
 
 The configuration file controls the simulation, Bayesian sampling, window selection, and evaluation settings.
