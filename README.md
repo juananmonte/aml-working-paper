@@ -1,66 +1,72 @@
-# <p align="center"> Bayesian Uncertainty for Routing Local Causal Investigations: A Synthetic AML working paper </p>
+# <p align="center"> Bayesian Uncertainty and Surprise for Prioritizing Local Causal Investigations in Anti-Money Laundering (working paper) </p>
 
-##### <p align="center"> [Juan Montenegro](https://github.com/juananmonte), Author<sup>1</sup>
-
-##### <p align="center"> <sup>1</sup>Guatemala City, Guatemala; <br>
-
+##### <p align="center"> [Juan Montenegro](https://github.com/juananmonte), Author<sup>1</sup> Guatemala City, Guatemala; <br>
 #
-The following working paper is an exploratory study of whether bayesian uncertainty regading anti-money laundering (AML) states can help select apropiate observation windows. The information in these windows are then passed through local causal investigation networks under a limited investigation budget.
+This exploratory study uses a Synthetic Data-Generating Process (DGP) to test whether Bayesian uncertainty and surprise can help decide which account periods to investigate when only a limited number can be reviewed (limited budget). A Bayesian Hidden Markov Model (HMM) estimates the probabilities of hidden AML states. Then, uncertainty and surprise scores are measured in order to prioritize investigation windows of accounts to investigate. After that, local causal discovery is used on those periods to identify potential causal relationships among observed variables. This helps formulating hypothesis about the AML process.
 
-This working paper combines synthetic account trajectories, a Bayesian Hidden Markov Model (HMM), a window selection process based on uncertainty and predictive surprise, and local causal discovery. Selection strategies are compared with random selection by measuring recovery of known relationships in the data-generating process.
+- Bayesian HMM: What latent AML state might an account be in  and how uncertain/surpirsed is the model about a prediction?
+- Routing: Given a limited investigation budget, which account windows should be investigated?
+- Causal discovery: What potential relationships exist among the observed variables in those selected windows?
 
-This draft examines the approach in a controlled synthetic setting. Its findings are preliminary and do not establish effectiveness on real AML data.
+
+In summary, can those discovered relationships help explain the mechanisms associated with latent AML behaviour?
 
 
 ## Project Organization
 
 ```
-├── LICENSE            <- Open-source license if one is chosen
+├── LICENSE            <- MIT license
 ├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
-├── README.md          <- The top-level README for developers using this project.
+├── README.md          <- Description of t
 ├── data
-│   ├── external       <- Data from third party sources.
 │   ├── interim        <- Intermediate data that has been transformed.
-│   ├── processed      <- The final, canonical data sets for modeling.
-│   └── raw            <- The original, immutable data dump.
+│   ├── processed      <- The datasets for modeling.
+│   └── raw            <- The original result of DGP.
 │
-├── docs               <- A default mkdocs project; see www.mkdocs.org for details
+├── docs               <- Extra information regarding the DGP, HMM, Routing and Causal Inference
+|
+├── models             <- Trained HMM models
 │
-├── models             <- Trained and serialized models, model predictions, or model summaries
-│
-├── notebooks          <- Jupyter/Marimo notebooks. Naming convention is a number (for ordering),
-│                         the creator's initials, and a short `-` delimited description, e.g.
-│                         `1.0-jqp-initial-data-exploration`.
-│
+├── notebooks          <- Jupyter notebooks for GDP, preprocessing, HMM, Routing and Causal Inference. 
+│                         These are alternative and interactive ways to understand how the paper works.
+|
 ├── pyproject.toml     <- Project configuration file with package metadata for
 │                         aml_working_paper and configuration for tools
 │
-├── references         <- Data dictionaries, manuals, and all other explanatory materials.
-│
-├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-│   ├── figures        <- Generated graphics and figures to be used in reporting
-│   └── logs           <- Experiment logs
-│
-├── tests              <- Test directory
+├── reports            <- Generated analysis as HTML, PDF, images, etc.
+│   ├── figures        <- Generated graphics and figures from the pape
+│   └── runs           <- The results from executing the "uv run" command from "reproducing experiments" section
 │
 └── aml_working_paper   <- Source code (structured pipeline, 5 modules)
     ├── __init__.py             <- Makes aml_working_paper a Python module
     ├── config.py               <- Store useful variables and configuration
-    ├── data                    <- Data acquisition and loading
-    │   ├── __init__.py
-    │   └── make_dataset.py     <- Scripts to download or generate data (raw → processed Parquet)
-    ├── features                <- Feature engineering
-    │   ├── __init__.py
-    │   └── build_features.py   <- Code to create features for modeling
+    |
+    |── simulation              <- Contains the code necessary to preprocess the simulated data      
+    │   ├── __init__.py         <- files to make the functions in .py files into modules
+    │   └── equations.py        <- Contains the functions necessary to create the observable and hidden variables
+    |   └── states.py           <- Functions to calculate the AML state changes
+    |
+    ├── data                    <- Contains the code necessary to preprocess the simulated data
+    |   ├── __init__.py         
+    |   └── preprocess.py       <- Contains functions for spliting, transforming and building sequences of data
+    |
     ├── models                  <- Model training
     │   ├── __init__.py
-    │   └── train_model.py      <- Code to train and persist models
-    ├── visualization           <- Data visualization
+    │   └── bayes_hmm.py        <- Build the Hidden Marko Model and it's necessary steps (ex: forward step)
+    |   └── labelswitch.py      <- Fix the order of the predicted labels so they match their correct aml state
+    |
+    ├── routing                 <- Generate the candidate investigation windows
     │   ├── __init__.py
-    │   └── visualize.py        <- Code to create visualizations
-    └── utils                   <- Utility functions
+    │   └── routing.py              <- calculate uncertainty and surprise. Generate the routing dataframe.
+    |   └── routing_investigate.py  <- Obtain candidate windows and assign a score based on a certain strategy
+    |
+    └── Causal                  <- Scripts necessary to find the relationships between observable variables
         ├── __init__.py
-        └── tools.py            <- General utilities
+        └── discovery_data.py   <- Make a dataframe from the selected windows obtained by routing
+        └── discovery.py        <- define PC and FCI algorithms
+        └── evaluation.py       <- Obtain the different metrics to evaluate PC/FCI results
+        └── ground_truth.py     <- Define how the observable and latent variables truly interact with each other
+        └── local_sample.py     <- Extract original observations for selected investigation windows.
 ```
 
 
@@ -68,20 +74,24 @@ This draft examines the approach in a controlled synthetic setting. Its findings
 
 # Research Context
 
-Anti-money laundering monitoring involves deciding which account activity deserves closer investigation. When investigation capacity is limited, selecting cases becomes part of the analytical problem.
+Machine learning models are used in Anti-Money Laundering (AML) systems to identify suspicious transactions and/or unusual account behavior. Nonetheless, these approaches mainly focus on obtaining predictions of possible risk behaviours, risk scores or anomaly scores. These predictions are limited regarding the actual patterns that created an alert. For example, an anomaly detection model such as Isolation Forest can identify unusual observations, but its anomaly score does not establish whether an account is involved in money laundering or explain the relationships among the analyzed variables.
 
-A model may assign similar risk estimates to observations while expressing different levels of uncertainty about their underlying states. This raises a question: could that uncertainty help identify cases where further investigation would be informative?
+Bayesian models offer an alternative by allowing beliefs to be updated as new evidence becomes available. In particular, Hidden Markov Models (HMMs) can represent changes in latent behavioral states over time. Their predicted probabilities can be used to calculate uncertainty and surprise, providing additional information beyond a single score. Yet, these metrics do not directly establish the causal mechanisms responsible for suspicious behavior. 
 
-This study explores that possibility in a synthetic setting. A Bayesian hidden Markov model estimates latent AML states, and uncertainty and predictive surprise guide the selection of observation windows for local causal discovery. Because the data-generating process is known, the recovered relationships can be compared with a predefined reference structure.
+Therefore, this study explores whether Bayesian uncertainty and surprise can be used to prioritize account-level time windows for further causal investigation under a limited investigation budget. By combining Bayesian predictions with local causal discovery algorithms, the proposed framework investigates whether uncertainty/surprise-aware prioritization can improve the recovery of causal relationships among observed variables compared to random selection.
 
-The objective is to assess whether these selection strategies improve structural recovery relative to random selection under the same investigation budget
-
-#
 # Research Question
 
-Can Bayesian AML-state uncertainty identify which cases deserve local causal investigation, improving causal mechanism recovery under a limited investigation budget?
+## Research Question
 
-For this working paper , the investigation budget is  the number of observation windows selected for analysis. Causal recovery is assessed through recovery of relationships in the reference graph; it does not imply recovery of complete causal mechanisms or estimation of causal effects.
+**Can Bayesian AML-state uncertainty and surprise help prioritize account-level time windows for local causal investigation, improving causal structure recovery under a limited investigation budget?**
+
+### Key Definitions
+
+- **Investigation budget:** The maximum number of observation windows that can be selected for local causal analysis.
+- **Uncertainty:** A measure of how unsure the Bayesian model is about which latent AML state an account occupies.
+- **Surprise:** A measure of how unexpected an observation or inferred state is according to the model's estimated probabilities.
+- Causal structure recovery: The identification of relationships among observed variables, evaluated against the known reference graph using precision, recall, and F1-score. This does not imply complete causal mechanism recovery or estimation of causal effects.
 
 --------
 
@@ -97,33 +107,32 @@ The experiment consists of five stages:
 5. Evaluation. Compare the recovered graph structure with the reference structure using precision, recall, and F1. Compare the routing strategies with repeated random selection and examine variability across simulation seeds.
 The Bayesian model guides where to investigate; the causal discovery stage estimates local graph structure. Uncertainty and surprise serve as selection criteria and are not themselves evidence of a causal relationship.
 
-### Experimental Design
+# Main results
 
-| Component          | Implementation Details          |
-|--------------------|----------------------------------|
-| Data Processing    | [Brief description]             |  
-| Model Architecture | [Key technical specifications]   |
-| Training Protocol  | [Optimization strategy]          |
-| Evaluation Metrics | [List metrics with justification]|
+| Strategy    | TP | FP | FN | Precision | Recall | F1-score |
+|-------------|----|----|----|-----------|--------|----------|
+| Uncertainty | 3  | 2  | 1  | 0.600     | 0.750  | 0.667    |
+| **Surprise**| 4  | 2  | 0  | 0.667     | 1.000  | **0.800**|
+| Combined    | 3  | 1  | 1  | 0.750     | 0.750  | 0.750    |
+| Random      | 3  | 1  | 1  | 0.750     | 0.750  | 0.750    |
 
+Causal skeleton recovery performance across routing strategies under a fixed investigation budget of 20 observation windows. Surprise-based routing achieves the highest F1-score (0.800) and recall (1.000) in this experiment. Results are preliminary and do not establish consistent superiority over random selection.
 
-# Preliminary results
+# Main conclusions so far
 
-The experiments demonstrate an end-to-end pipeline connecting Bayesian state estimation, investigation selection, and local causal discovery in a controlled synthetic setting. The results examined so far do not establish a consistent improvement from uncertainty-based selection over random selection. Performance varies across simulation runs, and repeated random selection frequently matches or exceeds the uncertainty strategy.
+- **Bayesian uncertainty and surprise provide alternative criteria for prioritizing local causal investigations.** The proposed framework demonstrates how posterior information from a Bayesian Hidden Markov Model can guide the selection of observation windows under a limited investigation budget, connecting probabilistic state estimation with local causal structure discovery.
 
-For example, in the experiment with simulation seed 46, uncertainty-based selection achieved an F1 score of 0.750. Across 50 random-selection repetitions, the mean F1 was approximately 0.720, with a standard deviation of 0.073. Random selection matched or exceeded the uncertainty score in 58% of repetitions.
+- **Surprise-based prioritization shows promising preliminary results for causal structure recovery.** In the reported experiment, surprise-based routing achieved the highest F1-score (0.80) and recall (1.00), outperforming uncertainty-based (0.67 F1), combined (0.75 F1), and random routing (0.75 F1). These results suggest that unexpected observations may contain useful information for causal structure discovery, although further experiments are needed to establish whether this advantage is consistent.
 
-In that experiment, uncertainty, surprise, combined selection, and the single reported random selection all achieved an F1 score of
-0.750 under both PC and FCI. These findings support the feasibility of the experimental pipeline, while leaving the proposed benefit of uncertainty-guided investigation unconfirmed under the tested settings.
-
-
-
+- **Bayesian prioritization does not guarantee better causal structure recovery.** The performance differences among routing strategies indicate that uncertainty and surprise are not necessarily equally informative for causal discovery. The results highlight the importance of evaluating investigation strategies against appropriate baselines rather than assuming that higher Bayesian uncertainty leads to more informative causal investigations.
+-------
+#
 # Limitations
 
 This study is an exploratory pilot with several limitations:
 
 - Synthetic setting. The data follow a specified simulation process and do not capture the full complexity of real financial activity. Results do not establish effectiveness on real AML cases.
-- Model assumptions. The Bayesian hidden Markov model provides a simplified representation of account activity. Its uncertainty estimates depend on the model specification, priors, and available observations.
+- Model assumptions. The Bayesian hidden Markov model provides a simplified representation of account activity. Its uncertainty estimates depend on the model specification, priors, and available observations.Additionally it assumes first-order Markov dependence and conditionally independent Gaussian emission features given the current hidden state. These assumptions may restrict its ability to represent longer-range temporal dependencies and correlations among observed AML indicators.
 - Local sample size and selection. Window size and selection affect the observations available for causal discovery. Selecting windows based on model scores may also change the dependence structure within the selected sample.
 - Causal discovery assumptions. The PC algorithm relies on assumptions about conditional independence and the underlying causal structure. Latent AML states and temporal dependence require particular care when interpreting relationships among observed variables.
 - Scope of evaluation. Graph recovery measures agreement with a specified reference structure. It does not establish that complete causal mechanisms have been recovered or that causal effects have been identified.
@@ -131,7 +140,7 @@ This study is an exploratory pilot with several limitations:
 
 --------
 
-## Reproducibility
+# Reproducibility
 
 ## Installation
 
@@ -151,16 +160,6 @@ uv venv
 source .venv/bin/activate  # Unix/macOS
 # .venv\Scripts\activate   # Windows
 uv sync
-```
-
-### Synthetic Data Generation
-
-1. Download datasets from [DOI: 10.xxxx/zenodo.xxxxxx]/[Google Drive link]
-2. Place raw data in `data/raw/` following our [data documentation](docs/data_standards.md)
-3. Run preprocessing:
-
-```bash
-make data
 ```
 
 Clone the repository:
@@ -195,8 +194,18 @@ Use a separate output directory for each experiment to keep results organized.
 
 The `--locked` option requires the dependency lockfile to remain consistent with the project configuration.
 
+### Jupyter Notebooks Alternative
+
+In case there are issues with the previous commands, I have created Jupyter Notebooks to run the entirity of the prjects in a more interactive manner. The order is
+1. DGP_interactive
+2. Preprocess_interactive
+3. Model_interactive
+4. Routing_interactive
+5. Causal_interactive
 
 --------
+These notebooks replicate everything in run.py and have the same guides as the .py files. 
+
 
 ## License
 
@@ -209,14 +218,14 @@ This project is licensed under the [MIT license License](LICENSE).
 If you use this work, please cite:
 
 ```bibtex
-@article{author2025project,
-  title={Title of Your Paper},
-  author={Author1 and Author2},
+@article{author2026project,
+  title={Bayesian Uncertainty for Routing Local Causal Investigations},
+  author={Juan Montenegro},
   journal={Journal Name},
-  volume={X},
-  pages={xx--xx},
-  year={2025},
-  doi={10.xxxx/xxxxx}
+  volume={},
+  pages={},
+  year={2026},
+  doi={}
 }
 ```
 

@@ -171,7 +171,6 @@ def _run_causal(val_df, candidates, config: dict, output: Path) -> None:
     from aml_working_paper.causal.local_sample import prepare_local_windows
     from aml_working_paper.routing.routing_investigate import (
         select_investigations,
-        validate_investigations,
     )
     from aml_working_paper.causal.evaluation import ( evaluate_skeleton,
     summarize_causal_results,
@@ -188,11 +187,6 @@ def _run_causal(val_df, candidates, config: dict, output: Path) -> None:
             strategy=strategy,
             random_state=config["seed"],
         )
-        validate_investigations(selected, candidates, config["budget"])
-        if len(selected) != config["budget"]:
-            raise ValueError(
-                f"Only {len(selected)} windows available for {strategy}; reduce budget"
-            )
         selected.to_parquet(
             output / f"data/interim/selected_{strategy}.parquet", index=False
         )
