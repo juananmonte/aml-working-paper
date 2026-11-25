@@ -111,19 +111,20 @@ The Bayesian model guides where to investigate; the causal discovery stage estim
 
 The configuration used for these results were (in `experiment.tom`) :  
   
-seed = 42
-n_accounts = 1000
-periods = 1000
-window_size = 10
-budget = 20
-draws = 500
-tune = 500
-chains = 6
-cores = 6
-target_accept = 0.9
-random_repeats = 50
-causal_alpha = 0.05
-causal_methods = ["PC", "FCI"]
+- seed = 42
+- n_accounts = 1000
+- periods = 1000
+- budget = 20
+- draws = 500
+- tune = 500
+- chains = 6
+- cores = 6
+- target_accept = 0.9
+- random_repeats = 50
+- causal_alpha = 0.05
+- causal_methods = ["PC", "FCI"]
+
+Results:
 
 | Strategy    | TP | FP | FN | Precision | Recall | F1-score |
 |-------------|----|----|----|-----------|--------|----------|
